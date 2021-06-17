@@ -46,21 +46,21 @@ class Ip_LastPosts extends Module implements WidgetInterface
   		$lang_short = Language::getIsoById( (int)$cookie->id_lang ); // language ISO acquisition
 
   		$result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
-    			SELECT ID, post_date, post_content, post_title, post_excerpt, c.name, c.name AS category, pm.meta_value, guid FROM ' . _WP_DB_PREFIX_ . 'posts
-    			JOIN ' . _WP_DB_PREFIX_ . 'icl_translations t ON ' . _WP_DB_PREFIX_ . 'posts.ID = t.element_id
-          JOIN ' . _WP_DB_PREFIX_ . 'term_relationships cr ON cr.object_id = ID
-          JOIN ' . _WP_DB_PREFIX_ . 'term_taxonomy ct ON cr.term_taxonomy_id = ct.term_taxonomy_id AND ct.taxonomy = "category"
-          JOIN ' . _WP_DB_PREFIX_ . 'terms c ON ct.term_id = c.term_id
-          JOIN ' . _WP_DB_PREFIX_ . 'postmeta pm ON pm.meta_key = "_thumbnail_id"
-          AND pm.post_id = ID
-          AND t.element_type = CONCAT("post_", ' . _WP_DB_PREFIX_ . 'posts.post_type)
-    			WHERE ' . _WP_DB_PREFIX_ . 'posts.post_type = "post"
-          AND ' . _WP_DB_PREFIX_ . 'posts.post_status = "publish"
-          AND ( ( t.language_code = "' . $lang_short . '"
-          AND ' . _WP_DB_PREFIX_ . 'posts.post_type = "post" ) )
-          GROUP BY ID
-    			ORDER BY ' . _WP_DB_PREFIX_ . 'posts.post_date DESC
-    			LIMIT ' . Configuration::get('IP_LASTPOSTS_NUMBER') . ';
+    	    SELECT ID, post_date, post_content, post_title, post_excerpt, c.name, c.name AS category, pm.meta_value, guid FROM ' . _WP_DB_PREFIX_ . 'posts
+    	    JOIN ' . _WP_DB_PREFIX_ . 'icl_translations t ON ' . _WP_DB_PREFIX_ . 'posts.ID = t.element_id
+            JOIN ' . _WP_DB_PREFIX_ . 'term_relationships cr ON cr.object_id = ID
+            JOIN ' . _WP_DB_PREFIX_ . 'term_taxonomy ct ON cr.term_taxonomy_id = ct.term_taxonomy_id AND ct.taxonomy = "category"
+            JOIN ' . _WP_DB_PREFIX_ . 'terms c ON ct.term_id = c.term_id
+            JOIN ' . _WP_DB_PREFIX_ . 'postmeta pm ON pm.meta_key = "_thumbnail_id"
+            AND pm.post_id = ID
+            AND t.element_type = CONCAT("post_", ' . _WP_DB_PREFIX_ . 'posts.post_type)
+    		WHERE ' . _WP_DB_PREFIX_ . 'posts.post_type = "post"
+            AND ' . _WP_DB_PREFIX_ . 'posts.post_status = "publish"
+            AND ( ( t.language_code = "' . $lang_short . '"
+            AND ' . _WP_DB_PREFIX_ . 'posts.post_type = "post" ) )
+            GROUP BY ID
+    		ORDER BY ' . _WP_DB_PREFIX_ . 'posts.post_date DESC
+    		LIMIT ' . Configuration::get('IP_LASTPOSTS_NUMBER') . ';
   		');
 
       foreach ($result as &$row) {
