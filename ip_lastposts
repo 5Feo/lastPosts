@@ -1,0 +1,148 @@
+<?php
+
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
+
+use PrestaShop\PrestaShop\Core\Module\WidgetInterface;
+
+class Ip_LastPosts extends Module implements WidgetInterface
+{
+    public function __construct()
+    {
+        $this->name = 'ip_lastposts';
+        $this->tab = 'front_office_features';
+        $this->version = '1.0.0';
+        $this->author = 'PrestaShop';
+
+        $this->bootstrap = true;
+        parent::__construct();
+
+        $this->displayName = $this->getTranslator()->trans('Recent entries on the home page', array(), 'Modules.LastPosts.Admin');
+        $this->description = $this->getTranslator()->trans('The module displays the last blog entries on the home page', array(), 'Modules.LastPosts.Admin');
+        $this->ip_versions_compliancy = array('min' => '1.7.1.0', 'max' => _PS_VERSION_);
+    }
+
+    public function install()
+    {
+        Configuration::updateValue('IP_LASTPOSTS_NUMBER', 2);
+        return parent::install() &&
+          $this->registerHook('displayHome');
+    }
+
+    public function uninstall()
+    {
+      if (!parent::uninstall() ||
+          !Configuration::updateValue('IP_LASTPOSTS_NUMBER', 2)) {
+          return false;
+      }
+        return true;
+    }
+
+    // getting blog entries
+    private function getPosts()
+    {
+      global $cookie;
+  		$lang_short = Language::getIsoById( (int)$cookie->id_lang ); // language ISO acquisition
+
+  		$result = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS('
+    			SELECT ID, post_date, post_content, post_title, post_excerpt, c.name, c.name AS category, pm.meta_value, guid FROM ' . _WP_DB_PREFIX_ . 'posts
+    			JOIN ' . _WP_DB_PREFIX_ . 'icl_translations t ON ' . _WP_DB_PREFIX_ . 'posts.ID = t.element_id
+          JOIN ' . _WP_DB_PREFIX_ . 'term_relationships cr ON cr.object_id = ID
+          JOIN ' . _WP_DB_PREFIX_ . 'term_taxonomy ct ON cr.term_taxonomy_id = ct.term_taxonomy_id AND ct.taxonomy = "category"
+          JOIN ' . _WP_DB_PREFIX_ . 'terms c ON ct.term_id = c.term_id
+          JOIN ' . _WP_DB_PREFIX_ . 'postmeta pm ON pm.meta_key = "_thumbnail_id"
+          AND pm.post_id = ID
+          AND t.element_type = CONCAT("post_", ' . _WP_DB_PREFIX_ . 'posts.post_type)
+    			WHERE ' . _WP_DB_PREFIX_ . 'posts.post_type = "post"
+          AND ' . _WP_DB_PREFIX_ . 'posts.post_status = "publish"
+          AND ( ( t.language_code = "' . $lang_short . '"
+          AND ' . _WP_DB_PREFIX_ . 'posts.post_type = "post" ) )
+          GROUP BY ID
+    			ORDER BY ' . _WP_DB_PREFIX_ . 'posts.post_date DESC
+    			LIMIT ' . Configuration::get('IP_LASTPOSTS_NUMBER') . ';
+  		');
+
+      foreach ($result as &$row) {
+          $posts[] = &$row;
+      }
+
+  		return $posts;
+
+    }
+
+    public function getContent()
+    {
+        $this->html = '';
+
+        if (Tools::isSubmit('submitPosts')) {
+            if ($isValidDisplayPrice) {
+                Configuration::updateValue('IP_LASTPOSTS_NUMBER', (int) Tools::getValue('IP_LASTPOSTS_NUMBER'));
+
+                $this->_clearCache($this->templateFile);
+                $this->html .= $this->displayConfirmation($this->trans('The settings have been updated.', array(), 'Admin.Notifications.Success'));
+            }
+        }
+
+        $this->html .= $this->renderForm();
+
+        return $this->html;
+    }
+
+    public function renderForm()
+    {
+        $fields_form = [
+            'form' => [
+                'legend' => [
+                    'title' => $this->getTranslator()->trans('Settings', [], 'Admin.Global'),
+                    'icon' => 'icon-cogs',
+                ],
+                'input' => [
+                    [
+                        'type' => 'text',
+                        'label' => $this->getTranslator()->trans("Number of entries", [], 'Modules.LastPosts.Admin'),
+                        'name' => 'IP_LASTPOSTS_NUMBER',
+                        'desc' => $this->getTranslator()->trans('Declare the number of posts to be displayed on the home page', [], 'Modules.LastPosts.Admin'),
+                    ],
+                ],
+                'submit' => [
+                    'title' => $this->getTranslator()->trans('Save', [], 'Admin.Actions'),
+                ],
+            ],
+        ];
+
+        $helper = new HelperForm();
+        $helper->show_toolbar = false;
+        $helper->table = $this->table;
+        $helper->submit_action = 'submitPosts';
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        $helper->tpl_vars = [
+            'fields_value' => $this->getConfigFieldsValues(),
+        ];
+
+        return $helper->generateForm([$fields_form]);
+    }
+
+    public function getConfigFieldsValues()
+    {
+        return [
+            'IP_LASTPOSTS_NUMBER' => Tools::getValue('IP_LASTPOSTS_NUMBER', Configuration::get('IP_LASTPOSTS_NUMBER'))
+        ];
+    }
+
+
+    public function renderWidget($hookName = null, array $configuration = [])
+    {
+        $this->smarty->assign($this->getWidgetVariables($hookName, $configuration));
+
+        return $this->fetch('module:ip_lastposts/views/templates/hook/ip_lastposts.tpl');
+    }
+
+    public function getWidgetVariables($hookName = null, array $configuration = [])
+    {
+        return [
+            'posts' => $this->getPosts(),
+        ];
+    }
+}
